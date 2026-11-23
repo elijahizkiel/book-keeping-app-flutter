@@ -104,6 +104,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
+        path: '/transactions/edit/:id',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return AddTransactionView(transactionId: id);
+        },
+      ),
+      GoRoute(
         path: '/transactions/detail/:id',
         builder: (context, state) {
           final id = state.pathParameters['id']!;

@@ -21,7 +21,16 @@ class TransactionDetailView extends ConsumerWidget {
     final prefs = ref.watch(preferencesStateProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Transaction Details')),
+      appBar: AppBar(
+        title: const Text('Transaction Details'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: 'Edit Transaction',
+            onPressed: () => context.push('/transactions/edit/$transactionId'),
+          ),
+        ],
+      ),
       body: transactionsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(child: Text('Error: $err')),

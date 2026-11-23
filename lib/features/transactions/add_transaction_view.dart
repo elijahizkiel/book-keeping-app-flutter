@@ -10,8 +10,13 @@ import 'package:bookkeeping_app/domain/entities/transaction.dart';
 
 class AddTransactionView extends ConsumerStatefulWidget {
   final String? initialFriendId;
+  final String? transactionId;
 
-  const AddTransactionView({super.key, this.initialFriendId});
+  const AddTransactionView({
+    super.key,
+    this.initialFriendId,
+    this.transactionId,
+  });
 
   @override
   ConsumerState<AddTransactionView> createState() => _AddTransactionViewState();
@@ -28,12 +33,15 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
   String _category = 'Food & Drinks';
   DateTime _date = DateTime.now();
   bool _isLoading = false;
+  bool _isInitialized = false;
 
   final List<String> _categories = [
+    'Food',
     'Food & Drinks',
     'Shopping',
     'Entertainment',
     'Travel',
+    'Groceries',
     'Bills & Utilities',
     'General',
   ];
@@ -42,6 +50,30 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
   void initState() {
     super.initState();
     _selectedFriendId = widget.initialFriendId;
+  }
+
+  void _loadExistingTransaction() {
+    if (_isInitialized || widget.transactionId == null) return;
+    final txsAsync = ref.read(transactionsListProvider);
+    txsAsync.whenData((txs) {
+      final tx = txs.cast().firstWhere(
+        (t) => t.id == widget.transactionId,
+        orElse: () => null,
+      );
+      if (tx != null) {
+        _descController.text = tx.description;
+        _amountController.text = (tx.amountMinor / 100.0).toStringAsFixed(2);
+        if (tx.notes != null) _notesController.text = tx.notes!;
+        _selectedFriendId = tx.friendId;
+        _direction = tx.direction;
+        _category = tx.category;
+        if (!_categories.contains(_category)) {
+          _categories.add(_category);
+        }
+        _date = tx.date;
+        _isInitialized = true;
+      }
+    });
   }
 
   @override
@@ -65,21 +97,43 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
 
     try {
       final money = Money.parse(_amountController.text);
-      final newTx = Transaction(
-        id: const Uuid().v4(),
-        friendId: _selectedFriendId!,
-        description: _descController.text.trim(),
-        amountMinor: money.minorUnits,
-        direction: _direction,
-        category: _category,
-        date: _date,
-        notes: _notesController.text.trim().isEmpty
-            ? null
-            : _notesController.text.trim(),
-        createdAt: DateTime.now(),
-      );
 
-      await ref.read(transactionsListProvider.notifier).addTransaction(newTx);
+      if (widget.transactionId != null) {
+        // Edit existing transaction
+        final updatedTx = Transaction(
+          id: widget.transactionId!,
+          friendId: _selectedFriendId!,
+          description: _descController.text.trim(),
+          amountMinor: money.minorUnits,
+          direction: _direction,
+          category: _category,
+          date: _date,
+          notes: _notesController.text.trim().isEmpty
+              ? null
+              : _notesController.text.trim(),
+          createdAt: DateTime.now(),
+        );
+        await ref
+            .read(transactionsListProvider.notifier)
+            .updateTransaction(updatedTx);
+      } else {
+        // Create new transaction
+        final newTx = Transaction(
+          id: const Uuid().v4(),
+          friendId: _selectedFriendId!,
+          description: _descController.text.trim(),
+          amountMinor: money.minorUnits,
+          direction: _direction,
+          category: _category,
+          date: _date,
+          notes: _notesController.text.trim().isEmpty
+              ? null
+              : _notesController.text.trim(),
+          createdAt: DateTime.now(),
+        );
+        await ref.read(transactionsListProvider.notifier).addTransaction(newTx);
+      }
+
       if (mounted) {
         if (Navigator.of(context).canPop()) {
           Navigator.of(context).pop();
@@ -101,9 +155,14 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
   @override
   Widget build(BuildContext context) {
     final friendsAsync = ref.watch(friendsListProvider);
+    _loadExistingTransaction();
+
+    final isEditing = widget.transactionId != null;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('New Transaction')),
+      appBar: AppBar(
+        title: Text(isEditing ? 'Edit Transaction' : 'New Transaction'),
+      ),
       body: SafeArea(
         child: Form(
           key: _formKey,
@@ -247,7 +306,7 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
 
               // Submit Button
               AppButton(
-                label: 'Save Transaction',
+                label: isEditing ? 'Update Transaction' : 'Save Transaction',
                 isLoading: _isLoading,
                 onPressed: _submit,
               ),

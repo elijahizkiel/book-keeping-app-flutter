@@ -10,6 +10,9 @@ import 'package:bookkeeping_app/domain/repositories/transactions_repository.dart
 import 'package:bookkeeping_app/data/repositories/in_memory_friends_repository.dart';
 import 'package:bookkeeping_app/data/repositories/in_memory_transactions_repository.dart';
 
+import 'package:bookkeeping_app/data/repositories/persistent_friends_repository.dart';
+import 'package:bookkeeping_app/data/repositories/persistent_transactions_repository.dart';
+
 // Repository Providers
 final friendsRepositoryProvider = Provider<FriendsRepository>((ref) {
   return InMemoryFriendsRepository();
@@ -62,7 +65,18 @@ class PreferencesNotifier extends Notifier<UserPreferences> {
 
   Future<void> resetAll() async {
     final repo = ref.read(preferencesRepositoryProvider);
+    final friendsRepo = ref.read(friendsRepositoryProvider);
+    final txRepo = ref.read(transactionsRepositoryProvider);
+
     await repo.clearAllData();
+    if (friendsRepo is PersistentFriendsRepository) {
+      await friendsRepo.clearAll();
+    }
+    if (txRepo is PersistentTransactionsRepository) {
+      await txRepo.clearAll();
+    }
+    ref.invalidate(friendsListProvider);
+    ref.invalidate(transactionsListProvider);
     state = const UserPreferences();
   }
 }
