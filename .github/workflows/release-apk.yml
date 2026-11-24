@@ -1,7 +1,7 @@
 name: Build and Release Android APK
 
 on:
-  push:
+  pull_request: 
     branches:
       - master
   workflow_dispatch:
@@ -44,7 +44,28 @@ jobs:
 
       - name: Build Android Release APK
         run: flutter build apk --release
+      - name: Verify APK
+        run: |  
+              APK="build/app/outputs/flutter-apk/app-release.apk"
 
+              echo "Checking APK file & size..."
+              ls -lh "$APK"
+          
+              echo "Checking APK integrity..."
+              test -f "$APK"
+              unzip -t "$APK"
+              BUILD_TOOLS=$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)
+
+              "$ANDROID_HOME/build-tools/$BUILD_TOOLS/apksigner" verify --verbose "$APK"
+              
+              echo "Checking APK signature..."
+              $ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V | tail -n 1)/apksigner verify --verbose "$APK"
+          
+              echo "Checking APK hash..."
+              sha256sum "$APK"
+
+              ls -lh "$APK"
+        
       - name: Determine Release Tag & Version
         id: versioning
         run: |
